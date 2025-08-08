@@ -6,11 +6,6 @@ const messageSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
-  receiver: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: false // Not required if message is in a room
-  },
   room: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Room',
@@ -21,10 +16,6 @@ const messageSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  read: {
-    type: Boolean,
-    default: false
-  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', messageSchema);

@@ -1,6 +1,8 @@
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
-const Room = require('../models/roomSchema');
+const Room = require('../models/roomSchema'); // Adjust the path as necessary
+const Message = require('../models/messageSchema');
+require('dotenv').config();
 
 const clients = new Map();
 
@@ -52,16 +54,38 @@ function setupWebSocket(server) {
         ws.send(JSON.stringify(msg));
         return;
       }
+      // Save the message to the database
+      try {
+        const newMessage = new Message({
+          sender: ws.userId,
+          room: msg.roomID,
+          content: msg.text,
+        });
+        const savedMessage = await newMessage.save();
 
-      // Broadcast to all connected members in the room
-      for (let [client, clientUserId] of clients.entries()) {
-        if (
-          clientsInRoom.includes(clientUserId.toString()) &&
-          client.readyState === WebSocket.OPEN
-        ) {
-          client.send(JSON.stringify(msg));
+        // Include message metadata in the broadcast
+        const broadcastMsg = {
+          _id: savedMessage._id,
+          sender: ws.userId,
+          roomID: msg.roomID,
+          text: msg.text,
+          time: savedMessage.createdAt,
+        };
+
+        // Broadcast to all connected members in the room
+        for (let [client, clientUserId] of clients.entries()) {
+          if (
+            clientsInRoom.includes(clientUserId.toString()) &&
+            client.readyState === WebSocket.OPEN
+          ) {
+            client.send(JSON.stringify(broadcastMsg));
+          }
         }
+      } catch (err) {
+        console.error('Error saving message:', err);
+        ws.send(JSON.stringify({ error: 'Failed to save message to database' }));
       }
+
     });
 
     ws.on('close', () => {

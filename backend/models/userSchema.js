@@ -23,7 +23,7 @@ const userSchema = new mongoose.Schema({
   },
   rooms:[{
     type:mongoose.Schema.Types.ObjectId,
-    ref:'room',
+    ref:'Room',
     required:true
   }]
 }, { timestamps: true });

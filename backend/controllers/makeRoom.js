@@ -6,8 +6,8 @@ async function createRoom(req, res) {
     const { name } = req.body;
     const currentUserId = req.user._id;
 
-    const existingRoom = await Room.findOne({ name });
-    if (existingRoom) return res.status(400).json({ message: 'Room name already exists' });
+    // const existingRoom = await Room.findOne({ name });
+    // if (existingRoom) return res.status(400).json({ message: 'Room name already exists' });
 
     const room = new Room({
       name,
