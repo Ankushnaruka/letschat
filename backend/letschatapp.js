@@ -6,7 +6,7 @@ const cors = require('cors');
 const setupWebSocket = require('./ws/wsServer');
 const roomRoutes = require('./routes/roomRoutes');
 const userRoutes = require('./routes/userRoutes');
-const StartKeepAlivePing = require('./develop/keepalive');
+const StartKeepAlivePing = require('./keepalive');
 
 const app = express();
 
