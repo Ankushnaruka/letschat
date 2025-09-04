@@ -16,7 +16,13 @@ async function signup(req, res) {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ username, password: hashedPassword, email, rooms: [] });
     await user.save();
-    res.status(201).json({ message: 'User registered successfully' });
+    res.status(201).json({ message: 'User registered successfully',
+      token: jwt.sign(
+        { _id: user._id, username: user.username },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      )
+    });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

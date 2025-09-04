@@ -11,8 +11,12 @@ const StartKeepAlivePing = require('./keepalive');
 const app = express();
 
 // Allow CORS
+// app.use(cors({
+//   origin: process.env.FRONTEND_URI, // Your frontend origin
+//   credentials: true
+// }));
 app.use(cors({
-  origin: process.env.FRONTEND_URI, // Your frontend origin
+  origin: '*',
   credentials: true
 }));
 
