@@ -54,12 +54,14 @@ function setupWebSocket(server) {
         ws.send(JSON.stringify(msg));
         return;
       }
+      //generating a cloudinary link if media is present
       // Save the message to the database
       try {
         const newMessage = new Message({
           sender: ws.userId,
           room: msg.roomID,
-          content: msg.text,
+          text: msg.text,
+          media: msg.media || null,
         });
         const savedMessage = await newMessage.save();
 
@@ -70,6 +72,7 @@ function setupWebSocket(server) {
           roomID: msg.roomID,
           text: msg.text,
           time: savedMessage.createdAt,
+          media: msg.media || null,
         };
 
         // Broadcast to all connected members in the room

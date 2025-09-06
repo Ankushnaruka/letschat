@@ -11,11 +11,15 @@ const messageSchema = new mongoose.Schema({
     ref: 'Room',
     required: true // every chat is a room
   },
-  content: {
+  text: {
     type: String,
     required: true,
     trim: true
   },
+  media: {
+    type: String, // URL or path to the media file
+    default: null,
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Message', messageSchema);
