@@ -18,6 +18,6 @@ router.post('/make-admin', jwtAuth, makeAdmin);
 router.post('/remove-member', jwtAuth, removeMember);
 router.post('/delete-room', jwtAuth, deleteRoom);
 router.post('/remove-admin',jwtAuth,removeAdmin);
-router.get('/get-messages', jwtAuth, getRoomMessages);
+router.post('/get-messages', jwtAuth, getRoomMessages);
 
 module.exports = router;
