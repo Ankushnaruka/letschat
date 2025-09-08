@@ -1,3 +1,4 @@
+const { strict } = require('assert');
 const mongoose = require('mongoose');
 const { type } = require('os');
 
@@ -25,7 +26,19 @@ const userSchema = new mongoose.Schema({
     type:mongoose.Schema.Types.ObjectId,
     ref:'Room',
     required:true
-  }]
+  }],
+  bio:{
+    type:String,
+    trim:true,
+  }
+  // follows:[{
+  //   type:mongoose.Schema.Types.ObjectId,
+  //   ref:'User',
+  // }],
+  // followers:[{
+  //   type:mongoose.Schema.Types.ObjectId,
+  //   ref:'User',
+  // }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);

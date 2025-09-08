@@ -23,6 +23,12 @@ async function addMember(req, res) {
     room.members.push(userIdToAdd);
     await room.save();
 
+    //if user had requested to join, remove from requests
+    room.requests = room.requests.filter(
+      requestId => requestId.toString() !== userIdToAdd.toString()
+    );
+    await room.save();
+
     // Add room to user's rooms array
     await User.findByIdAndUpdate(
       userIdToAdd,

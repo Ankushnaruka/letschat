@@ -6,12 +6,22 @@ const roomSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  uniqueName: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+  },
   admins: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
   }],
   members: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  requests:[{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   }]

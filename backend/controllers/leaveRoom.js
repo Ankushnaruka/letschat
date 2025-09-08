@@ -29,7 +29,7 @@ async function leaveRoom(req, res) {
       { $pull: { rooms: room._id } }
     );
 
-    res.json({ message: 'You have left the group', room });
+    res.json({ message: 'You have left the room', room });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
