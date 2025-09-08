@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema({
   bio:{
     type:String,
     trim:true,
-  }
+  },
   // follows:[{
   //   type:mongoose.Schema.Types.ObjectId,
   //   ref:'User',
@@ -38,7 +38,13 @@ const userSchema = new mongoose.Schema({
   // followers:[{
   //   type:mongoose.Schema.Types.ObjectId,
   //   ref:'User',
-  // }]
+  // }],
+  resetCode: {
+    type:String,
+  },
+  resetCodeExpiry: {
+    type:Date,
+  },
 }, { timestamps: true });
 
 module.exports = mongoose.model('User', userSchema);
