@@ -11,8 +11,10 @@ function setupWebSocket(server) {
 
   wss.on('connection', (ws, req) => {
     // Parse token from query string
-    const params = new URLSearchParams(req.url.split('?')[1]);
-    const token = params.get('token');
+    //const params = new URLSearchParams(req.url.split('?')[1]);
+
+    const authHeader = req.headers['authorization'];
+    const token = authHeader?.split(' ')[1];
 
     if (!token) {
       ws.close(4001, 'Authentication required');
