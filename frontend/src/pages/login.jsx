@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+require('dotenv').config();
 
 function Login({ onLogin }) {
   const [mode, setMode] = useState("login"); // "login" or "signup"
@@ -14,7 +15,7 @@ function Login({ onLogin }) {
     setMessage("");
     if (mode === "login") {
       try {
-        const res = await fetch("http://localhost:8080/api/auth/login", {
+        const res = await fetch(LOGIN_ROUTE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password }),
@@ -33,7 +34,7 @@ function Login({ onLogin }) {
     }else {
       // Sign up
       try {
-        const res = await fetch("http://localhost:8080/api/auth/signup", {
+        const res = await fetch(SIGNUP_ROUTE, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username, password, email }),
