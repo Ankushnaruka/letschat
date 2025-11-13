@@ -14,15 +14,27 @@ async function signup(req, res) {
       return res.status(409).json({ message: 'Username already exists' });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Create user FIRST to get _id
     const user = new User({ username, password: hashedPassword, email, rooms: [] });
     await user.save();
-    res.status(201).json({ message: 'User registered successfully',
-      token: jwt.sign(
-        { _id: user._id, username: user.username },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      )
-    });
+
+    // THEN generate tokens with valid user._id
+    const accessToken = jwt.sign(
+      { _id: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+    const refreshToken = jwt.sign(
+      { _id: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    res.status(201).json({ message: 'User registered successfully', accessToken, refreshToken });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
@@ -43,12 +55,20 @@ async function login(req, res) {
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    const token = jwt.sign(
+    const refreshToken = jwt.sign(
       { _id: user._id, username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     );
-    res.json({ token });
+
+    const accessToken = jwt.sign(
+      { _id: user._id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '15m' }
+    );
+    user.refreshToken = refreshToken;
+    await user.save();
+    res.json({ accessToken, refreshToken });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
   }

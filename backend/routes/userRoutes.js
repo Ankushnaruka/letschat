@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { signup, login } = require('../controllers/authController');
+const {refreshTokengen} = require('../controllers/refressToken');
 const { forgotPassword, verifyCode, resetPassword } = require('../controllers/forgotPassword');
 
 const jwtAuth = require('../middlewares/jwtAuth');
@@ -21,5 +22,7 @@ router.post('/login', login);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-code', verifyCode);
 router.post('/reset-password', resetPassword);
+router.post('/refresh-token', refreshTokengen);
+
 
 module.exports = router;
