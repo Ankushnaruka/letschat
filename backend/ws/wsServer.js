@@ -1,13 +1,31 @@
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
-const Room = require('../models/roomSchema'); // Adjust the path as necessary
+const Room = require('../models/roomSchema');
 const Message = require('../models/messageSchema');
+const { publisher, subscriber } = require('../config/redis');
 require('dotenv').config();
 
 const clients = new Map();
 
-function setupWebSocket(server) {
+async function setupWebSocket(server) {
   const wss = new WebSocket.Server({ server });
+
+  // Subscribe to Redis messages channel
+  await subscriber.subscribe('messages', (raw) => {
+    try {
+      const parsed = JSON.parse(raw);
+      const broadcastPayload = parsed.payload;
+      const roomMembers = parsed.roomMembers || [];
+
+      for (let [client, clientUserId] of clients.entries()) {
+        if (roomMembers.includes(clientUserId.toString()) && client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify(broadcastPayload));
+        }
+      }
+    } catch (err) {
+      console.error('Invalid pubsub message:', err);
+    }
+  });
 
   wss.on('connection', (ws, req) => {
     // Parse token from query string
@@ -56,7 +74,6 @@ function setupWebSocket(server) {
         ws.send(JSON.stringify(msg));
         return;
       }
-      //generating a cloudinary link if media is present
       // Save the message to the database
       try {
         const newMessage = new Message({
@@ -77,15 +94,12 @@ function setupWebSocket(server) {
           media: msg.media || null,
         };
 
-        // Broadcast to all connected members in the room
-        for (let [client, clientUserId] of clients.entries()) {
-          if (
-            clientsInRoom.includes(clientUserId.toString()) &&
-            client.readyState === WebSocket.OPEN
-          ) {
-            client.send(JSON.stringify(broadcastMsg));
-          }
-        }
+        // Publish to Redis for all server instances
+        const pubPacket = {
+          payload: broadcastMsg,
+          roomMembers: clientsInRoom
+        };
+        await publisher.publish('messages', JSON.stringify(pubPacket));
       } catch (err) {
         console.error('Error saving message:', err);
         ws.send(JSON.stringify({ error: 'Failed to save message to database' }));
