@@ -9,6 +9,14 @@ async function pingDB() {
   } catch (err) {
     console.error('❌ MongoDB ping failed:', err.message);
   }
+  try {
+    // A simple Redis command to keep it awake
+    const { publisher } = require('./config/redis');
+    await publisher.ping();
+    console.log('✅ Redis ping successful');
+  } catch (err) {
+    console.error('❌ Redis ping failed:', err.message);
+  }
 }
 
 function StartKeepAlivePing() {

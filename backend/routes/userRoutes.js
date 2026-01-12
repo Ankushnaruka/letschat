@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { signup, login } = require('../controllers/authController');
+const { signup, login, logout } = require('../controllers/authController');
 const {refreshTokengen} = require('../controllers/refressToken');
-const { forgotPassword, verifyCode, resetPassword } = require('../controllers/forgotPassword');
+const { forgotPassword, verifyCode, resetPassword } = require('../controllers/forgotPassword.js');
 
 const jwtAuth = require('../middlewares/jwtAuth');
 const Room = require('../models/roomSchema');
@@ -19,10 +19,10 @@ router.get('/my-rooms', jwtAuth, async (req, res) => {
 
 router.post('/signup', signup);
 router.post('/login', login);
+router.post('/logout', logout);
 router.post('/forgot-password', forgotPassword);
 router.post('/verify-code', verifyCode);
 router.post('/reset-password', resetPassword);
 router.post('/refresh-token', refreshTokengen);
-
 
 module.exports = router;

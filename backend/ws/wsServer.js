@@ -27,12 +27,37 @@ async function setupWebSocket(server) {
     }
   });
 
-  wss.on('connection', (ws, req) => {
-    // Parse token from query string
-    //const params = new URLSearchParams(req.url.split('?')[1]);
+  // Subscribe to force-logout channel to close sockets for a user across instances
+  await subscriber.subscribe('force-logout', (raw) => {
+    try {
+      const parsed = JSON.parse(raw);
+      const { userId } = parsed;
+      for (let [client, clientUserId] of clients.entries()) {
+        if (clientUserId && clientUserId.toString() === userId.toString()) {
+          try {
+            if (client.readyState === WebSocket.OPEN) {
+              client.close(4003, 'Logged out');
+            }
+          } catch (err) {
+            console.error('Error closing client during force-logout:', err);
+          }
+          clients.delete(client);
+        }
+      }
+    } catch (err) {
+      console.error('Invalid force-logout message:', err);
+    }
+  });
 
+  wss.on('connection', (ws, req) => {
+    //Extract token from query string or Authorization header
+    // const params = new URLSearchParams(req.url ? req.url.split('?')[1] : '');
+    // const tokenFromQuery = params.get('token');
     const authHeader = req.headers['authorization'];
     const token = authHeader?.split(' ')[1];
+    
+
+    //taking token form cookies
 
     if (!token) {
       ws.close(4001, 'Authentication required');

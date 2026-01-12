@@ -3,6 +3,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const http = require('http');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const setupWebSocket = require('./ws/wsServer');
 const roomRoutes = require('./routes/roomRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -10,17 +11,14 @@ const StartKeepAlivePing = require('./keepalive');
 
 const app = express();
 
-// Allow CORS
-// app.use(cors({
-//   origin: process.env.FRONTEND_URI, // Your frontend origin
-//   credentials: true
-// }));
+// Allow CORS with credentials
 app.use(cors({
-  origin: '*',
+  origin: process.env.FRONTEND_URI || 'http://localhost:5173',
   credentials: true
 }));
 
 app.use(express.json());
+app.use(cookieParser());
 app.use('/api/rooms', roomRoutes);
 app.use('/api/auth', userRoutes);
 
