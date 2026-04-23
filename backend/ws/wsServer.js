@@ -51,13 +51,12 @@ async function setupWebSocket(server) {
 
   wss.on('connection', (ws, req) => {
     //Extract token from query string or Authorization header
-    // const params = new URLSearchParams(req.url ? req.url.split('?')[1] : '');
-    // const tokenFromQuery = params.get('token');
+    const params = new URLSearchParams(req.url ? req.url.split('?')[1] : '');
+    const tokenFromQuery = params.get('token');
     const authHeader = req.headers['authorization'];
-    const token = authHeader?.split(' ')[1];
+    const tokenFromHeader = authHeader?.split(' ')[1];
     
-
-    //taking token form cookies
+    const token = tokenFromQuery || tokenFromHeader;
 
     if (!token) {
       ws.close(4001, 'Authentication required');

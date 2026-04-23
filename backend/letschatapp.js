@@ -13,7 +13,12 @@ const app = express();
 
 // Allow CORS with credentials
 app.use(cors({
-  origin: process.env.FRONTEND_URI || 'http://localhost:5173',
+  //origin: process.env.FRONTEND_URI || 'http://localhost:5173',
+  origin: [
+    "http://localhost:5173",
+    "http://10.47.246.85:5173",
+    process.env.FRONTEND_URI 
+  ],
   credentials: true
 }));
 
@@ -35,7 +40,7 @@ async function startServer() {
     const server = http.createServer(app);
     setupWebSocket(server);
 
-    server.listen(process.env.PORT, () => {
+    server.listen(process.env.PORT, "0.0.0.0", () => {
       console.log(`🚀 Server started on http://localhost:${process.env.PORT}`);
 
       // Start keep-alive only after server is ready

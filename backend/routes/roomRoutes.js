@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwtAuth = require('../middlewares/jwtAuth');
+const Room = require('../models/roomSchema');
 const addMember = require('../controllers/addMember');
 const makeRoom = require('../controllers/makeRoom');
 const leaveRoom = require('../controllers/leaveRoom');
@@ -11,6 +12,33 @@ const removeAdmin = require('../controllers/removeAdmin');
 const getRoomMessages = require('../controllers/getMessages');
 const requestRoomjoin = require('../controllers/requestRoomjoin');
 const cancelRequest = require('../controllers/cancelRequest');
+
+// Get all rooms with search
+router.get('/all-rooms', jwtAuth, async (req, res) => {
+  try {
+    const { search } = req.query;
+    let query = {};
+    
+    if (search) {
+      // Search by room name or unique name (case-insensitive)
+      query = {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { uniqueName: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+    
+    const rooms = await Room.find(query)
+      .populate('members', 'username email _id')
+      .populate('admins', 'username email _id')
+      .populate('requests', 'username email _id')
+      .sort({ createdAt: -1 });
+    res.json(rooms);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+});
 
 // Room routes
 router.post('/add-member', jwtAuth, addMember);

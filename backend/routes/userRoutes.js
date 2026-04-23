@@ -10,7 +10,9 @@ const Room = require('../models/roomSchema');
 router.get('/my-rooms', jwtAuth, async (req, res) => {
   try {
     // req.user._id is set by jwtAuth middleware
-    const rooms = await Room.find({ members: req.user._id });
+    const rooms = await Room.find({ members: req.user._id })
+      .populate('members', 'username email _id')
+      .populate('admins', 'username email _id');
     res.json(rooms);
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });

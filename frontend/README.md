@@ -1,12 +1,42 @@
-# React + Vite
+# LetsChat Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React chat application connected to the LetsChat API.
 
-Currently, two official plugins are available:
+## Project Structure
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+```
+frontend/
+├── index.html
+├── package.json
+├── vite.config.js
+└── src/
+    ├── main.jsx              # Entry point
+    ├── App.jsx               # Root component & state management
+    ├── styles.js             # Global CSS-in-JS styles
+    ├── components/
+    │   ├── AuthScreen.jsx    # Login / Sign up screen
+    │   ├── Sidebar.jsx       # Room list sidebar
+    │   ├── ChatHeader.jsx    # Active room header with actions
+    │   ├── MessageList.jsx   # Scrollable message thread
+    │   ├── MessageInput.jsx  # Text input + send button
+    │   ├── RightPanel.jsx    # Room info, members, requests
+    │   ├── CreateRoomModal.jsx  # Modal to create a new room
+    │   ├── EmptyState.jsx    # Shown when no room is selected
+    │   └── Toast.jsx         # Notification toasts
+    ├── hooks/
+    │   └── useWebSocket.js   # WS connection with auto-reconnect
+    └── utils/
+        ├── api.js            # Fetch wrapper for REST API
+        └── helpers.js        # Date formatting & message grouping
+```
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
+
+## API
+- Base URL: `https://letschat-1-8pfq.onrender.com/api`
+- WebSocket: `wss://letschat-1-8pfq.onrender.com`
