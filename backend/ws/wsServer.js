@@ -11,42 +11,41 @@ const clients = new Map();
 async function setupWebSocket(server) {
   const wss = new WebSocket.Server({ server });
 
-  // Subscribe to Redis messages channel
-  await subscriber.subscribe('messages', (raw) => {
-    try {
-      const parsed = JSON.parse(raw);
-      const broadcastPayload = parsed.payload;
-      const roomMembers = parsed.roomMembers || [];
+  await subscriber.subscribe('messages');
+  await subscriber.subscribe('force-logout');
 
-      for (let [client, clientUserId] of clients.entries()) {
-        if (roomMembers.includes(clientUserId.toString()) && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(broadcastPayload));
+  subscriber.on('message', (channel, raw) => {
+    try {
+      if (channel === 'messages') {
+        const parsed = JSON.parse(raw);
+        const broadcastPayload = parsed.payload;
+        const roomMembers = parsed.roomMembers || [];
+
+        for (let [client, clientUserId] of clients.entries()) {
+          if (roomMembers.includes(clientUserId.toString()) && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(broadcastPayload));
+          }
+        }
+      }
+
+      if (channel === 'force-logout') {
+        const parsed = JSON.parse(raw);
+        const { userId } = parsed;
+        for (let [client, clientUserId] of clients.entries()) {
+          if (clientUserId && clientUserId.toString() === userId.toString()) {
+            try {
+              if (client.readyState === WebSocket.OPEN) {
+                client.close(4003, 'Logged out');
+              }
+            } catch (err) {
+              console.error('Error closing client during force-logout:', err);
+            }
+            clients.delete(client);
+          }
         }
       }
     } catch (err) {
       console.error('Invalid pubsub message:', err);
-    }
-  });
-
-  // Subscribe to force-logout channel to close sockets for a user across instances
-  await subscriber.subscribe('force-logout', (raw) => {
-    try {
-      const parsed = JSON.parse(raw);
-      const { userId } = parsed;
-      for (let [client, clientUserId] of clients.entries()) {
-        if (clientUserId && clientUserId.toString() === userId.toString()) {
-          try {
-            if (client.readyState === WebSocket.OPEN) {
-              client.close(4003, 'Logged out');
-            }
-          } catch (err) {
-            console.error('Error closing client during force-logout:', err);
-          }
-          clients.delete(client);
-        }
-      }
-    } catch (err) {
-      console.error('Invalid force-logout message:', err);
     }
   });
 
