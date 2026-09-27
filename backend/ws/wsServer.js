@@ -1,53 +1,106 @@
+const path = require('path');
 const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const Room = require('../models/roomSchema');
 const Message = require('../models/messageSchema');
 const User = require('../models/userSchema');
 const { publisher, subscriber } = require('../config/redis');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const clients = new Map();
+let redisSubscriptionsBound = false;
+let redisSubscriptionsReady = false;
+let messagesSubscriptionAdded = false;
+let logoutSubscriptionAdded = false;
+let redisSubscriptionSetupPromise = null;
+
+const onRedisMessage = (raw) => handleRedisMessage('messages', raw);
+const onRedisForceLogout = (raw) => handleRedisMessage('force-logout', raw);
+
+function broadcastLocally(roomMembers, payload) {
+  for (const [client, clientUserId] of clients.entries()) {
+    if (roomMembers.includes(clientUserId.toString()) && client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(payload));
+    }
+  }
+}
+
+function handleRedisMessage(channel, raw) {
+  try {
+    if (channel === 'messages') {
+      const parsed = JSON.parse(raw);
+      const roomMembers = parsed.roomMembers || [];
+      console.info('Redis room message received:', { roomID: parsed.payload?.roomID });
+      broadcastLocally(roomMembers, parsed.payload);
+      return;
+    }
+
+    if (channel === 'force-logout') {
+      const { userId } = JSON.parse(raw);
+      for (const [client, clientUserId] of clients.entries()) {
+        if (clientUserId && clientUserId.toString() === userId.toString()) {
+          try {
+            if (client.readyState === WebSocket.OPEN) client.close(4003, 'Logged out');
+          } catch (err) {
+            console.error('Error closing client during force-logout:', err.message);
+          }
+          clients.delete(client);
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`Invalid Redis pub/sub message on ${channel}:`, err.message);
+  }
+}
+
+async function subscribeToRedis() {
+  if (!subscriber || !subscriber.isReady || redisSubscriptionsReady) return;
+  if (redisSubscriptionSetupPromise) return redisSubscriptionSetupPromise;
+
+  redisSubscriptionSetupPromise = (async () => {
+    try {
+      // node-redis restores active subscriptions on reconnect; don't register
+      // duplicate listeners when its ready event fires again.
+      if (messagesSubscriptionAdded && logoutSubscriptionAdded) {
+        redisSubscriptionsReady = true;
+        console.log('Redis subscriptions restored: messages, force-logout');
+        return;
+      }
+
+      if (!messagesSubscriptionAdded) {
+        await subscriber.subscribe('messages', onRedisMessage);
+        messagesSubscriptionAdded = true;
+      }
+      if (!logoutSubscriptionAdded) {
+        await subscriber.subscribe('force-logout', onRedisForceLogout);
+        logoutSubscriptionAdded = true;
+      }
+      redisSubscriptionsReady = true;
+      console.log('Redis subscriptions active: messages, force-logout');
+    } catch (err) {
+      console.warn('Redis subscriptions unavailable; using local room broadcasts:', err.message);
+    } finally {
+      redisSubscriptionSetupPromise = null;
+    }
+  })();
+
+  return redisSubscriptionSetupPromise;
+}
 
 async function setupWebSocket(server) {
   const wss = new WebSocket.Server({ server });
 
-  await subscriber.subscribe('messages');
-  await subscriber.subscribe('force-logout');
-
-  subscriber.on('message', (channel, raw) => {
-    try {
-      if (channel === 'messages') {
-        const parsed = JSON.parse(raw);
-        const broadcastPayload = parsed.payload;
-        const roomMembers = parsed.roomMembers || [];
-
-        for (let [client, clientUserId] of clients.entries()) {
-          if (roomMembers.includes(clientUserId.toString()) && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(broadcastPayload));
-          }
-        }
-      }
-
-      if (channel === 'force-logout') {
-        const parsed = JSON.parse(raw);
-        const { userId } = parsed;
-        for (let [client, clientUserId] of clients.entries()) {
-          if (clientUserId && clientUserId.toString() === userId.toString()) {
-            try {
-              if (client.readyState === WebSocket.OPEN) {
-                client.close(4003, 'Logged out');
-              }
-            } catch (err) {
-              console.error('Error closing client during force-logout:', err);
-            }
-            clients.delete(client);
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Invalid pubsub message:', err);
-    }
-  });
+  if (subscriber && typeof subscriber.subscribe === 'function' && !redisSubscriptionsBound) {
+    redisSubscriptionsBound = true;
+    subscriber.on('ready', subscribeToRedis);
+    const markSubscriberUnavailable = () => {
+      redisSubscriptionsReady = false;
+      console.warn('Redis subscriber disconnected; room broadcasts will use local fallback');
+    };
+    subscriber.on('reconnecting', markSubscriberUnavailable);
+    subscriber.on('end', markSubscriberUnavailable);
+    await subscribeToRedis();
+  }
 
   wss.on('connection', (ws, req) => {
     //Extract token from query string or Authorization header
@@ -120,12 +173,30 @@ async function setupWebSocket(server) {
           media: msg.media || null,
         };
 
-        // Publish to Redis for all server instances
+        // Publish to Redis for all server instances; if Redis is down, broadcast locally
         const pubPacket = {
           payload: broadcastMsg,
           roomMembers: clientsInRoom
         };
-        await publisher.publish('messages', JSON.stringify(pubPacket));
+
+        let redisPublished = false;
+        try {
+          if (publisher && publisher.isReady) {
+            await publisher.publish('messages', JSON.stringify(pubPacket));
+            redisPublished = true;
+            console.info('Redis room message published:', { roomID: msg.roomID });
+          } else {
+            throw new Error('Redis publisher is not connected');
+          }
+        } catch (redisErr) {
+          console.warn('Redis publish failed, using local room broadcast:', redisErr.message);
+        }
+
+        // A connected publisher can publish successfully while this process's
+        // subscriber is still starting. Keep local users in sync in that window.
+        if (!redisPublished || !redisSubscriptionsReady) {
+          broadcastLocally(clientsInRoom, broadcastMsg);
+        }
       } catch (err) {
         console.error('Error saving message:', err);
         ws.send(JSON.stringify({ error: 'Failed to save message to database' }));
