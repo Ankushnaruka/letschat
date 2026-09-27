@@ -1,7 +1,8 @@
 import { useState } from "react";
 
-export default function MessageInput({ onSend, disabled }) {
+export default function MessageInput({ onSend, onUpload, disabled }) {
   const [text, setText] = useState("");
+  let fileInputRef = null;
 
   const handleSend = () => {
     if (!text.trim() || disabled) return;
@@ -11,7 +12,22 @@ export default function MessageInput({ onSend, disabled }) {
 
   return (
     <div className="input-area">
-      <button className="plus-btn">
+      <input
+        ref={(r) => (fileInputRef = r)}
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={async (e) => {
+          const f = e.target.files && e.target.files[0];
+          if (f && onUpload) await onUpload(f);
+          e.target.value = "";
+        }}
+      />
+      <button
+        className="plus-btn"
+        onClick={() => fileInputRef && fileInputRef.click()}
+        title="Upload image"
+      >
         <svg
           width="16"
           height="16"

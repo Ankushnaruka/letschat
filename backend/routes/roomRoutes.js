@@ -12,6 +12,7 @@ const removeAdmin = require('../controllers/removeAdmin');
 const getRoomMessages = require('../controllers/getMessages');
 const requestRoomjoin = require('../controllers/requestRoomjoin');
 const cancelRequest = require('../controllers/cancelRequest');
+const rejectRequest = require('../controllers/rejectRequest');
 
 // Get all rooms with search
 router.get('/all-rooms', jwtAuth, async (req, res) => {
@@ -51,5 +52,6 @@ router.post('/remove-admin',jwtAuth,removeAdmin);
 router.post('/get-messages', jwtAuth, getRoomMessages);
 router.post('/request-joinroom', jwtAuth, requestRoomjoin);
 router.post('/cancel-request', jwtAuth, cancelRequest);
+router.post('/reject-request', jwtAuth, rejectRequest);
 
 module.exports = router;

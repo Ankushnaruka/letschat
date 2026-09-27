@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { api } from "./utils/api";
 import { useWebSocket } from "./hooks/useWebSocket";
 import globalStyles from "./styles";
@@ -13,8 +13,30 @@ import CreateRoomModal from "./components/CreateRoomModal";
 import EmptyState from "./components/EmptyState";
 import Toast from "./components/Toast";
 
+function isJwtExpired(token) {
+  if (!token) return true;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return true;
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+    );
+    if (!payload.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
 export default function App() {
-  const [auth, setAuth] = useState(null);
+  const [auth, setAuth] = useState(() => {
+    try {
+      const saved = localStorage.getItem("letschat-auth");
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
   const [rooms, setRooms] = useState([]);
   const [activeRoom, setActiveRoom] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -23,6 +45,34 @@ export default function App() {
   const [search, setSearch] = useState("");
 
   const showToast = (msg, type = "success") => setToast({ msg, type });
+
+  const loadRooms = useCallback(
+    async (token) => {
+      try {
+        const data = await api("/auth/my-rooms", {}, token);
+        setRooms(Array.isArray(data) ? data : []);
+      } catch (e) {
+        showToast(e.message, "error");
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!auth?.accessToken) {
+      localStorage.removeItem("letschat-auth");
+      return;
+    }
+
+    if (isJwtExpired(auth.accessToken)) {
+      setAuth(null);
+      localStorage.removeItem("letschat-auth");
+      return;
+    }
+
+    localStorage.setItem("letschat-auth", JSON.stringify(auth));
+    loadRooms(auth.accessToken);
+  }, [auth, loadRooms]);
 
   // WebSocket message handler
   const handleWsMessage = useCallback((msg) => {
@@ -59,20 +109,11 @@ export default function App() {
     handleWsMessage
   );
 
-  const loadRooms = useCallback(
-    async (token) => {
-      try {
-        const data = await api("/auth/my-rooms", {}, token);
-        setRooms(Array.isArray(data) ? data : []);
-      } catch (e) {
-        showToast(e.message, "error");
-      }
-    },
-    []
-  );
-
   const handleAuth = (authData) => {
     setAuth(authData);
+    if (authData?.accessToken) {
+      localStorage.setItem("letschat-auth", JSON.stringify(authData));
+    }
     loadRooms(authData.accessToken);
   };
 
@@ -88,6 +129,79 @@ export default function App() {
       setMessages(Array.isArray(data) ? data : []);
     } catch (e) {
       showToast(e.message, "error");
+    }
+  };
+
+  const requestJoin = async (roomId) => {
+    try {
+      const data = await api(
+        "/rooms/request-joinroom",
+        { method: "POST", body: { roomId } },
+        auth.accessToken
+      );
+      // refresh rooms
+      await loadRooms(auth.accessToken);
+      if (activeRoom && activeRoom._id === roomId) setActiveRoom((r) => ({ ...r, requests: data.room?.requests || [] }));
+      showToast("Join request sent");
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  };
+
+  const cancelJoinRequest = async (roomId) => {
+    try {
+      const data = await api(
+        "/rooms/cancel-request",
+        { method: "POST", body: { roomId } },
+        auth.accessToken
+      );
+      await loadRooms(auth.accessToken);
+      if (activeRoom && activeRoom._id === roomId) setActiveRoom((r) => ({ ...r, requests: data.room?.requests || [] }));
+      showToast("Join request cancelled");
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  };
+
+  const uploadImage = async (file) => {
+    const CLOUD = import.meta.env.VITE_CLOUDINARY_CLOUD;
+    const PRESET = import.meta.env.VITE_CLOUDINARY_PRESET;
+    if (!CLOUD || !PRESET) {
+      showToast("Cloudinary config missing (VITE_CLOUDINARY_CLOUD / _PRESET)", "error");
+      return;
+    }
+    const form = new FormData();
+    form.append("file", file);
+    form.append("upload_preset", PRESET);
+    try {
+      const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD}/upload`, {
+        method: "POST",
+        body: form,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || "Upload failed");
+      const url = data.secure_url;
+      if (wsSend && activeRoom) {
+        const sent = wsSend({ text: "", roomID: activeRoom._id, media: url });
+        if (sent) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              _id: `opt-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+              text: "",
+              media: url,
+              sender: { _id: "me", username: auth.username },
+              _mine: true,
+            },
+          ]);
+        } else {
+          showToast("Not connected to chat server", "error");
+        }
+      }
+      showToast("Image uploaded");
+    } catch (e) {
+      showToast(e.message || "Upload error", "error");
     }
   };
 
@@ -142,6 +256,61 @@ export default function App() {
     }
   };
 
+  const acceptRequest = async (roomId, userId) => {
+    try {
+      const data = await api(
+        "/rooms/add-member",
+        { method: "POST", body: { roomId, userIdToAdd: userId } },
+        auth.accessToken
+      );
+      await loadRooms(auth.accessToken);
+      if (activeRoom && activeRoom._id === roomId) setActiveRoom(data.room || activeRoom);
+      showToast("User added to room");
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  };
+
+  const rejectRequestAdmin = async (roomId, userId) => {
+    try {
+      const data = await api(
+        "/rooms/reject-request",
+        { method: "POST", body: { roomId, userIdToReject: userId } },
+        auth.accessToken
+      );
+      await loadRooms(auth.accessToken);
+      if (activeRoom && activeRoom._id === roomId) setActiveRoom(data.room || activeRoom);
+      showToast("Request rejected");
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  };
+
+  const addMemberByUsername = async (username) => {
+    if (!activeRoom) {
+      showToast("Select a room first", "error");
+      return;
+    }
+    const trimmed = (username || "").trim();
+    if (!trimmed) {
+      showToast("Enter a username to add", "error");
+      return;
+    }
+
+    try {
+      const data = await api(
+        "/rooms/add-member",
+        { method: "POST", body: { roomId: activeRoom._id, username: trimmed } },
+        auth.accessToken
+      );
+      await loadRooms(auth.accessToken);
+      setActiveRoom((prev) => (prev && prev._id === activeRoom._id ? data.room || prev : prev));
+      showToast("Member added to room");
+    } catch (e) {
+      showToast(e.message, "error");
+    }
+  };
+
   if (!auth) {
     return (
       <>
@@ -167,7 +336,10 @@ export default function App() {
           onSelectRoom={selectRoom}
           onCreateRoom={() => setShowCreate(true)}
           onRefresh={() => loadRooms(auth.accessToken)}
-          onSignOut={() => setAuth(null)}
+          onSignOut={() => {
+            setAuth(null);
+            localStorage.removeItem("letschat-auth");
+          }}
         />
 
         <div className="main">
@@ -177,10 +349,14 @@ export default function App() {
                 room={activeRoom}
                 onLeave={leaveRoom}
                 onDelete={deleteRoom}
+                onRequestJoin={requestJoin}
+                onCancelRequest={cancelJoinRequest}
+                userId={auth.userId}
               />
               <MessageList messages={messages} username={auth.username} userId={auth.userId} />
               <MessageInput
                 onSend={sendMessage}
+                onUpload={uploadImage}
                 disabled={wsStatus !== "connected"}
               />
             </>
@@ -189,7 +365,16 @@ export default function App() {
           )}
         </div>
 
-        {activeRoom && <RightPanel room={activeRoom} />}
+        {activeRoom && (
+          <RightPanel
+            room={activeRoom}
+            onAcceptRequest={acceptRequest}
+            onRejectRequest={rejectRequestAdmin}
+            onAddMemberByUsername={addMemberByUsername}
+            currentUserId={auth.userId}
+            token={auth.accessToken}
+          />
+        )}
 
         {showCreate && (
           <CreateRoomModal
@@ -199,6 +384,10 @@ export default function App() {
               setRooms((r) => [...r, room]);
               setShowCreate(false);
               showToast("Room created!");
+            }}
+            onRequestSent={() => {
+              setShowCreate(false);
+              showToast("Join request sent");
             }}
           />
         )}

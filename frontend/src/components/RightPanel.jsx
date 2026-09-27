@@ -1,7 +1,32 @@
-export default function RightPanel({ room }) {
+import { useState } from 'react';
+import RequestModal from './RequestModal';
+
+export default function RightPanel({ room, onAcceptRequest, onRejectRequest, onAddMemberByUsername, currentUserId, token }) {
   const admins = room.admins || [];
   const members = room.memberDetails || room.members || [];
   const requests = room.requests || [];
+
+  const [openReq, setOpenReq] = useState(false);
+  const [usernameInput, setUsernameInput] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+
+  const isCurrentUserAdmin = admins.some((a) => {
+    if (!a) return false;
+    if (typeof a === 'string') return a === currentUserId;
+    return a._id === currentUserId;
+  });
+
+  const handleAddByUsername = async (e) => {
+    e.preventDefault();
+    if (!onAddMemberByUsername) return;
+    setAddingMember(true);
+    try {
+      await onAddMemberByUsername(usernameInput);
+      setUsernameInput('');
+    } finally {
+      setAddingMember(false);
+    }
+  };
 
   return (
     <div className="right-panel">
@@ -15,7 +40,7 @@ export default function RightPanel({ room }) {
       {members.map((m, i) => {
         const memberId = m._id || m;
         const username = m.username || `Member ${i + 1}`;
-        const isAdmin = admins.includes(memberId);
+        const isAdmin = admins.some((a) => (typeof a === 'string' ? a === memberId : a._id === memberId));
         return (
           <div key={memberId || i} className="member-item">
             <div
@@ -28,19 +53,43 @@ export default function RightPanel({ room }) {
         );
       })}
 
-      {requests.length > 0 && (
-        <>
-          <div className="rp-section">requests ({requests.length})</div>
-          {requests.map((r, i) => (
-            <div key={r._id || i} className="member-item">
-              <div
-                className="member-dot"
-                style={{ background: "#f59e0b" }}
-              />
-              <span>{r.username || `Request ${i + 1}`}</span>
-            </div>
-          ))}
-        </>
+      {isCurrentUserAdmin && (
+        <div style={{ padding: '12px 18px 4px' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 8 }}>Add member</div>
+          <form onSubmit={handleAddByUsername} style={{ display: 'flex', gap: 8 }}>
+            <input
+              value={usernameInput}
+              onChange={(e) => setUsernameInput(e.target.value)}
+              placeholder="Username"
+              style={{ flex: 1, minWidth: 0 }}
+            />
+            <button type="submit" className="h-btn" disabled={addingMember}>
+              {addingMember ? 'Adding…' : 'Add'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      <div style={{ padding: '12px 18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)' }}>Requests</div>
+          <button className="h-btn" onClick={() => setOpenReq(true)}>
+            View ({requests.length})
+          </button>
+        </div>
+      </div>
+
+      {openReq && (
+        <RequestModal
+          roomId={room._id}
+          requests={requests}
+          onClose={() => setOpenReq(false)}
+          onAccept={onAcceptRequest}
+          onReject={onRejectRequest}
+          currentUserId={currentUserId}
+          isAdmin={isCurrentUserAdmin}
+          token={token}
+        />
       )}
     </div>
   );

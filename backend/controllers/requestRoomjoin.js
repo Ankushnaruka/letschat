@@ -4,6 +4,9 @@ async function requestRoomjoin(req, res){
     try {
         const { roomId } = req.body;
         const currentUserId = req.user._id;
+        const username = req.user.username;
+
+        if (!roomId) return res.status(400).json({ message: 'roomId is required' });
 
         const room = await Room.findById(roomId);
         if (!room) return res.status(404).json({ message: 'Room not found' });
@@ -14,12 +17,12 @@ async function requestRoomjoin(req, res){
         if (isAlreadyMember) return res.status(400).json({ message: 'You are already a member of this room' });
 
         const hasRequested = room.requests.some(
-            requestId => requestId.toString() === currentUserId.toString()
+            requestId => requestId.id.toString() === currentUserId.toString()
         );
         if (hasRequested) return res.status(400).json({ message: 'You have already requested to join this room' });
 
         // add user to room's requests
-        room.requests.push(currentUserId);
+        room.requests.push({ id: currentUserId, username });
         await room.save();
         res.json({ message: 'Join request sent successfully', room });
 

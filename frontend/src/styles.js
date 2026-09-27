@@ -81,13 +81,17 @@ const style = `
   .messages-area { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 2px; }
   .date-divider { text-align: center; font-size: 11px; color: var(--text2); font-weight: 500; letter-spacing: 0.5px; padding: 16px 0 8px; display: flex; align-items: center; gap: 12px; }
   .date-divider::before, .date-divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .msg-row { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 8px; }
+  .msg-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
   .msg-row.mine { flex-direction: row-reverse; }
-  .msg-content { display: flex; flex-direction: column; gap: 2px; }
+  .msg-content { display: flex; flex-direction: column; gap: 2px; max-width: 76%; min-width: 0; }
   .msg-avatar { width: 28px; height: 28px; border-radius: 8px; background: var(--bg4); flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--accent2); }
-  .bubble { max-width: 62%; padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; }
+  .bubble { padding: 12px 16px; border-radius: 18px; font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere; }
+  .msg-row .bubble { max-width: 100%; }
+  .msg-row .bubble.theirs { text-align: left; }
+  .msg-row.mine .bubble { text-align: right; }
   .bubble.theirs { background: var(--bg3); border-bottom-left-radius: 5px; }
   .bubble.mine { background: var(--accent); border-bottom-right-radius: 5px; }
+  .bubble img { max-width: 100%; height: auto; display: block; border-radius: 10px; margin-top: 8px; }
   .bubble-time { font-size: 10px; color: rgba(255,255,255,0.45); margin-top: 4px; text-align: right; font-family: var(--mono); }
   .bubble.theirs .bubble-time { color: var(--text2); text-align: left; }
   .msg-sender { font-size: 11px; color: var(--text2); margin-bottom: 3px; font-weight: 500; }

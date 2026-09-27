@@ -2,6 +2,7 @@ const WebSocket = require('ws');
 const jwt = require('jsonwebtoken');
 const Room = require('../models/roomSchema');
 const Message = require('../models/messageSchema');
+const User = require('../models/userSchema');
 const { publisher, subscriber } = require('../config/redis');
 require('dotenv').config();
 
@@ -107,11 +108,13 @@ async function setupWebSocket(server) {
           media: msg.media || null,
         });
         const savedMessage = await newMessage.save();
+        const senderUser = await User.findById(ws.userId).select('username');
 
         // Include message metadata in the broadcast
         const broadcastMsg = {
           _id: savedMessage._id,
           sender: ws.userId,
+          senderUsername: senderUser ? senderUser.username : 'Unknown',
           roomID: msg.roomID,
           text: msg.text,
           time: savedMessage.createdAt,

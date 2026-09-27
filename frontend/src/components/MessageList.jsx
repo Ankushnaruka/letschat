@@ -38,6 +38,9 @@ export default function MessageList({ messages, username, userId }) {
               )}
               <div className={`bubble ${mine ? "mine" : "theirs"}`}>
                 {item.text}
+                {item.media && (
+                  <img src={item.media} alt="attachment" />
+                )}
                 <div className="bubble-time">
                   {fmtTime(item.createdAt || item.time)}
                 </div>

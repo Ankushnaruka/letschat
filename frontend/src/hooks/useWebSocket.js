@@ -1,6 +1,38 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 
-const WS_URL = import.meta.env.VITE_WS_URL;
+function isJwtExpired(token) {
+  if (!token) return true;
+  try {
+    const parts = token.split(".");
+    if (parts.length < 2) return true;
+    const payload = JSON.parse(
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
+    );
+    if (!payload.exp) return false;
+    return Date.now() >= payload.exp * 1000;
+  } catch {
+    return true;
+  }
+}
+
+const resolveWsUrl = () => {
+  const configured = (import.meta.env.VITE_WS_URL || "").trim();
+  if (!configured) {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    return `${protocol}://${window.location.host}`;
+  }
+
+  try {
+    const url = new URL(configured);
+    url.pathname = "/";
+    url.search = "";
+    return url.toString();
+  } catch {
+    return configured.replace(/\/ws\/?$/i, "");
+  }
+};
+
+const WS_URL = resolveWsUrl();
 
 export function useWebSocket(token, onMessage) {
   const ws = useRef(null);
@@ -9,11 +41,15 @@ export function useWebSocket(token, onMessage) {
 
   const connect = useCallback(
     (tok) => {
+      if (!tok || isJwtExpired(tok)) {
+        setStatus("disconnected");
+        return;
+      }
       if (ws.current && ws.current.readyState < 2) ws.current.close();
       clearTimeout(reconnectTimer.current);
       setStatus("connecting");
 
-      const wsUrl = `${WS_URL}?token=${tok}`;
+      const wsUrl = `${WS_URL}?token=${encodeURIComponent(tok)}`;
       const sock = new WebSocket(wsUrl);
       ws.current = sock;
 
@@ -21,9 +57,14 @@ export function useWebSocket(token, onMessage) {
         setStatus("connected");
       };
 
-      sock.onclose = () => {
+      sock.onclose = (event) => {
         setStatus("disconnected");
-        reconnectTimer.current = setTimeout(() => connect(tok), 6000);
+
+        const reason = event.reason || "";
+        const isAuthFailure = /invalid token|authentication required|401|4002|4003/i.test(reason);
+        if (!isAuthFailure) {
+          reconnectTimer.current = setTimeout(() => connect(tok), 6000);
+        }
       };
 
       sock.onerror = () => setStatus("disconnected");
