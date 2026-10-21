@@ -35,37 +35,47 @@ export default function AuthScreen({ onAuth }) {
     }
   };
 
+  const onKey = (e) => e.key === "Enter" && submit();
+
   return (
     <div className="auth-wrap">
-      <div className="auth-bg" />
       <div className="auth-card">
         <div className="auth-logo">
-          Lets<span>Chat</span>
+          <div className="auth-logo-icon">
+            <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth="2.5">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <span className="auth-logo-name">Lets<span>Chat</span></span>
         </div>
-        <div className="auth-sub">Connect. Chat. Collaborate.</div>
+        <div className="auth-tagline">Simple, fast, room-based messaging.</div>
+
         <div className="auth-tabs">
           <button
-            className={`auth-tab ${tab === "login" ? "active" : ""}`}
+            className={`auth-tab${tab === "login" ? " active" : ""}`}
             onClick={() => setTab("login")}
           >
             Sign In
           </button>
           <button
-            className={`auth-tab ${tab === "signup" ? "active" : ""}`}
+            className={`auth-tab${tab === "signup" ? " active" : ""}`}
             onClick={() => setTab("signup")}
           >
             Create Account
           </button>
         </div>
+
         <div className="field">
           <label>Username</label>
           <input
             value={form.username}
             onChange={set("username")}
             placeholder="john_doe"
-            onKeyDown={(e) => e.key === "Enter" && submit()}
+            onKeyDown={onKey}
+            autoComplete="username"
           />
         </div>
+
         {tab === "signup" && (
           <div className="field">
             <label>Email</label>
@@ -74,10 +84,12 @@ export default function AuthScreen({ onAuth }) {
               value={form.email}
               onChange={set("email")}
               placeholder="john@example.com"
-              onKeyDown={(e) => e.key === "Enter" && submit()}
+              onKeyDown={onKey}
+              autoComplete="email"
             />
           </div>
         )}
+
         <div className="field">
           <label>Password</label>
           <input
@@ -85,12 +97,15 @@ export default function AuthScreen({ onAuth }) {
             value={form.password}
             onChange={set("password")}
             placeholder="••••••••"
-            onKeyDown={(e) => e.key === "Enter" && submit()}
+            onKeyDown={onKey}
+            autoComplete={tab === "login" ? "current-password" : "new-password"}
           />
         </div>
+
         <button className="btn-primary" onClick={submit} disabled={loading}>
           {loading ? "Please wait…" : tab === "login" ? "Sign In" : "Create Account"}
         </button>
+
         {err && <div className="err-msg">{err}</div>}
       </div>
     </div>

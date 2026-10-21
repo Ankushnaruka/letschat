@@ -9,7 +9,7 @@ export default function ChatHeader({ room, onLeave, onDelete, onRequestJoin, onC
     if (typeof r === "string") return r === userId;
     if (r._id) return r._id === userId;
     if (r.userId) return r.userId === userId;
-    if (r.user && r.user._id) return r.user._id === userId;
+    if (r.user?._id) return r.user._id === userId;
     return false;
   });
   const isAdmin = (room.admins || []).some((a) => {
@@ -20,33 +20,31 @@ export default function ChatHeader({ room, onLeave, onDelete, onRequestJoin, onC
 
   return (
     <div className="chat-header">
-      <div className="chat-header-avatar">
-        {room.name?.[0]?.toUpperCase()}
-      </div>
-      <div>
-        <div className="chat-header-name">{room.name}</div>
-        <div className="chat-header-meta">
-          {room.members?.length || 0} members · {room.uniqueName}
+      <div className="ch-avatar">{room.name?.[0]?.toUpperCase()}</div>
+      <div className="ch-info">
+        <div className="ch-name">{room.name}</div>
+        <div className="ch-meta">
+          {room.members?.length || 0} members · #{room.uniqueName}
         </div>
       </div>
-      <div className="chat-header-right">
+      <div className="ch-actions">
         {!isMember && !isRequested && (
-          <button className="h-btn" onClick={() => onRequestJoin(room._id)}>
-            Join
+          <button className="ch-btn primary" onClick={() => onRequestJoin(room._id)}>
+            Request to Join
           </button>
         )}
         {!isMember && isRequested && (
-          <button className="h-btn" onClick={() => onCancelRequest(room._id)}>
+          <button className="ch-btn" onClick={() => onCancelRequest(room._id)}>
             Cancel Request
           </button>
         )}
         {isMember && (
-          <button className="h-btn" onClick={onLeave}>
-            Leave
+          <button className="ch-btn" onClick={onLeave}>
+            Leave Room
           </button>
         )}
         {isAdmin && (
-          <button className="h-btn danger" onClick={onDelete}>
+          <button className="ch-btn danger" onClick={onDelete}>
             Delete
           </button>
         )}
