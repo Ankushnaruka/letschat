@@ -117,7 +117,9 @@ async function login(req, res) {
 // Logout
 async function logout(req, res) {
   try {
-    const refreshToken = req.cookies ? req.cookies.refreshToken : null;
+    const authHeader = req.headers['authorization'];
+    const bearerToken = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
+    const refreshToken = req.cookies?.refreshToken || bearerToken;
     if (!refreshToken) {
       return res.status(400).json({ message: 'No refresh token provided' });
     }

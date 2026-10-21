@@ -1,554 +1,164 @@
-Collecting workspace information# 🚀 LetsChat API Endpoints Documentation
+# LetsChat API reference
 
-## 📋 Base URL
-```
-https://letschat-1-8pfq.onrender.com/api
-```
+This document describes the routes currently mounted by `backend/letschatapp.js` and `backend/routes/`.
 
----
+## Base URLs
 
-## 🔐 Authentication Endpoints
+| Service | Local example | Deployed example |
+| --- | --- | --- |
+| REST API | `http://localhost:<PORT>/api` | `https://letschat-1-8pfq.onrender.com/api` |
+| Health check | `http://localhost:<PORT>/ping` | `https://letschat-1-8pfq.onrender.com/ping` |
+| WebSocket | `ws://localhost:<PORT>` | `wss://letschat-1-8pfq.onrender.com` |
 
-### 1. **Sign Up**
-- **Route:** `POST /auth/signup`
-- **Description:** Register a new user
-- **Headers:** `Content-Type: application/json`
-- **Body:**
-```json
-{
-  "username": "john_doe",
-  "email": "john@example.com",
-  "password": "securepassword123"
-}
-```
-- **Response (201):**
-```json
-{
-  "message": "User registered successfully",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
+All REST request and response bodies use JSON unless specified otherwise. Send `Content-Type: application/json` with JSON request bodies.
 
----
+## Authentication
 
-### 2. **Login**
-- **Route:** `POST /auth/login`
-- **Description:** Authenticate user and get tokens
-- **Headers:** `Content-Type: application/json`
-- **Body:**
-```json
-{
-  "username": "john_doe",
-  "password": "securepassword123"
-}
-```
-- **Response (200):**
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
+- Signup and login return an access token (15 minutes) and refresh token (7 days). They also set `httpOnly` cookies.
+- Protected REST routes accept `Authorization: Bearer <accessToken>` or the `accessToken` cookie.
+- Refresh uses `Authorization: Bearer <refreshToken>`.
+- Logout reads the `refreshToken` cookie; send requests with credentials so the browser includes it.
+- WebSocket connections accept the access token in `?token=<accessToken>` or an Authorization bearer header. The frontend uses the query parameter.
 
----
+Example protected REST request:
 
-### 3. **Refresh Token**
-- **Route:** `POST /auth/refresh-token`
-- **Description:** Get new access token using refresh token
-- **Headers:**
-```
-Authorization: Bearer <refreshToken>
-Content-Type: application/json
-```
-- **Response (200):**
-```json
-{
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
----
-
-## 🔑 Password Reset Endpoints
-
-### 4. **Forgot Password**
-- **Route:** `POST /auth/forgot-password`
-- **Description:** Request password reset code via email
-- **Headers:** `Content-Type: application/json`
-- **Body:**
-```json
-{
-  "username": "john_doe"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Verification code sent to email"
-}
-```
-
----
-
-### 5. **Verify Reset Code**
-- **Route:** `POST /auth/verify-code`
-- **Description:** Verify the password reset code
-- **Headers:** `Content-Type: application/json`
-- **Body:**
-```json
-{
-  "email": "john@example.com",
-  "code": "123456"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Code verified"
-}
-```
-
----
-
-### 6. **Reset Password**
-- **Route:** `POST /auth/reset-password`
-- **Description:** Reset password with verified code
-- **Headers:** `Content-Type: application/json`
-- **Body:**
-```json
-{
-  "username": "john_doe",
-  "code": "123456",
-  "newPassword": "newsecurepassword123"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Password reset successful"
-}
-```
-
----
-
-## 👤 User Endpoints
-
-### 7. **Get My Rooms**
-- **Route:** `GET /auth/my-rooms`
-- **Description:** Get all rooms for authenticated user
-- **Headers:**
-```
+```http
+GET /api/auth/my-rooms
 Authorization: Bearer <accessToken>
 ```
-- **Response (200):**
+
+## Authentication routes
+
+| Method | Path | Auth | Request | Success |
+| --- | --- | --- | --- | --- |
+| `POST` | `/api/auth/signup` | No | `{ "username", "email", "password" }` | `201`, message, `userId`, `accessToken`, `refreshToken` |
+| `POST` | `/api/auth/login` | No | `{ "username", "password" }` | `200`, message, `userId`, `accessToken`, `refreshToken` |
+| `POST` | `/api/auth/logout` | Refresh-token cookie | No body | `200`, `{ "message": "Logout successful" }` |
+| `POST` | `/api/auth/refresh-token` | Refresh token in bearer header | No body | `200`, new `accessToken` and `refreshToken` |
+| `POST` | `/api/auth/forgot-password` | No | `{ "username" }` | `200`, verification email sent |
+| `POST` | `/api/auth/verify-code` | No | `{ "email", "code" }` | `200`, code verified |
+| `POST` | `/api/auth/reset-password` | No | `{ "username", "code", "newPassword" }` | `200`, password reset |
+
+Signup example:
+
 ```json
-[
-  {
-    "_id": "507f1f77bcf86cd799439011",
-    "name": "General Chat",
-    "uniqueName": "general-chat",
-    "admins": ["507f1f77bcf86cd799439001"],
-    "members": ["507f1f77bcf86cd799439001", "507f1f77bcf86cd799439002"],
-    "requests": [],
-    "createdAt": "2024-01-15T10:30:00.000Z",
-    "updatedAt": "2024-01-15T10:30:00.000Z"
-  }
-]
+{
+  "username": "jane_doe",
+  "email": "jane@example.com",
+  "password": "your-password"
+}
 ```
 
----
+Login example:
 
-## 🏠 Room Management Endpoints
-
-### 8. **Create Room**
-- **Route:** `POST /rooms/make-room`
-- **Description:** Create a new chat room
-- **Headers:**
+```json
+{
+  "username": "jane_doe",
+  "password": "your-password"
+}
 ```
+
+Password reset codes expire after three minutes. The verify-code endpoint checks the code but does not issue a separate reset token; reset-password checks the code again.
+
+## User and room discovery routes
+
+| Method | Path | Auth | Request | Success |
+| --- | --- | --- | --- | --- |
+| `GET` | `/api/auth/my-rooms` | Access token | None | Array of rooms the user belongs to, with populated members/admins/requests |
+| `GET` | `/api/auth/users/:id` | Access token | Mongo user ID in path | User `{ "_id", "username", "email" }` |
+| `GET` | `/api/rooms/all-rooms` | Access token | Optional `?search=<term>` | Array of rooms, newest first; search matches name or unique name |
+
+Example room search:
+
+```http
+GET /api/rooms/all-rooms?search=general
 Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "name": "General Chat",
-  "uniqueName": "general-chat"
-}
-```
-- **Response (201):**
-```json
-{
-  "message": "Room created successfully",
-  "room": {
-    "_id": "507f1f77bcf86cd799439011",
-    "name": "General Chat",
-    "uniqueName": "general-chat",
-    "admins": ["507f1f77bcf86cd799439001"],
-    "members": ["507f1f77bcf86cd799439001"],
-    "requests": []
-  }
-}
 ```
 
----
+## Room routes
 
-### 9. **Delete Room**
-- **Route:** `POST /rooms/delete-room`
-- **Description:** Delete a room (admin only)
-- **Headers:**
+All routes in this section require an access token. Admin-only actions are marked in the permission column.
+
+| Method | Path | Request JSON | Permission / result |
+| --- | --- | --- | --- |
+| `POST` | `/api/rooms/make-room` | `{ "name", "uniqueName" }` | Creates a room; current user becomes its first member and admin. Returns `201` and the room. |
+| `POST` | `/api/rooms/delete-room` | `{ "roomId" }` | Admin only. Deletes the room and removes it from users' room lists. |
+| `POST` | `/api/rooms/add-member` | `{ "roomId", "userIdToAdd" }` or `{ "roomId", "username" }` | Admin only. Adds the user and clears their join request. |
+| `POST` | `/api/rooms/remove-member` | `{ "roomId", "userIdToRemove" }` | Admin only. Removes the user and any admin role. |
+| `POST` | `/api/rooms/leave` | `{ "roomId" }` | Current user leaves and loses any admin role in that room. |
+| `POST` | `/api/rooms/make-admin` | `{ "roomId", "userIdToMakeAdmin" }` | Admin only. Promotes a user; adds them as a member if needed. |
+| `POST` | `/api/rooms/remove-admin` | `{ "roomId", "userIdToRemoveAdmin" }` | Admin only. Removes the target's admin role but keeps membership. |
+| `POST` | `/api/rooms/request-joinroom` | `{ "roomId" }` | Current user requests to join. Rejects existing members and duplicate requests. |
+| `POST` | `/api/rooms/cancel-request` | `{ "roomId" }` | Current user cancels their pending request. |
+| `POST` | `/api/rooms/reject-request` | `{ "roomId", "userIdToReject" }` | Admin only. Removes the target's pending request. |
+| `POST` | `/api/rooms/get-messages` | `{ "roomId" }` | Room members only. Returns messages oldest first, with sender username populated. |
+
+Successful room updates generally return `{ "message", "room" }`. Delete returns `{ "message" }`.
+
+## WebSocket chat protocol
+
+Connect to the WebSocket base URL with a valid access token:
+
+```text
+wss://letschat-1-8pfq.onrender.com/?token=<accessToken>
 ```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
+
+The server first sends a connection event:
+
 ```json
 {
-  "roomId": "507f1f77bcf86cd799439011"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Room deleted successfully"
+  "type": "connected",
+  "userId": "<user-id>"
 }
 ```
 
----
+Send a room message as JSON. `roomID` must identify an existing room that the connected user belongs to. `text` is required by the message schema; `media` may contain a media URL.
 
-## 👥 Member Management Endpoints
-
-### 10. **Add Member**
-- **Route:** `POST /rooms/add-member`
-- **Description:** Add a user to a room (admin only)
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
 ```json
 {
-  "roomId": "507f1f77bcf86cd799439011",
-  "userIdToAdd": "507f1f77bcf86cd799439002"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Member added successfully",
-  "room": { /* room object */ }
-}
-```
-
----
-
-### 11. **Remove Member**
-- **Route:** `POST /rooms/remove-member`
-- **Description:** Remove a user from a room (admin only)
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "roomId": "507f1f77bcf86cd799439011",
-  "userIdToRemove": "507f1f77bcf86cd799439002"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Member removed successfully",
-  "room": { /* room object */ }
-}
-```
-
----
-
-### 12. **Leave Room**
-- **Route:** `POST /rooms/leave`
-- **Description:** Leave a room as current user
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "roomId": "507f1f77bcf86cd799439011"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "You have left the room",
-  "room": { /* room object */ }
-}
-```
-
----
-
-## 🛡️ Admin Management Endpoints
-
-### 13. **Make Admin**
-- **Route:** `POST /rooms/make-admin`
-- **Description:** Promote a user to admin (admin only)
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "roomId": "507f1f77bcf86cd799439011",
-  "userIdToMakeAdmin": "507f1f77bcf86cd799439002"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "User promoted to admin successfully",
-  "room": { /* room object */ }
-}
-```
-
----
-
-### 14. **Remove Admin**
-- **Route:** `POST /rooms/remove-admin`
-- **Description:** Demote an admin to regular member (admin only)
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "roomId": "507f1f77bcf86cd799439011",
-  "userIdToRemoveAdmin": "507f1f77bcf86cd799439002"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Admin rights removed successfully",
-  "room": { /* room object */ }
-}
-```
-
----
-
-## 📨 Join Request Endpoints
-
-### 15. **Request Room Join**
-- **Route:** `POST /rooms/request-joinroom`
-- **Description:** Send a join request to a room
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "roomId": "507f1f77bcf86cd799439011"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Join request sent successfully",
-  "room": { /* room object */ }
-}
-```
-
----
-
-### 16. **Cancel Join Request**
-- **Route:** `POST /rooms/cancel-request`
-- **Description:** Cancel a pending join request
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "roomId": "507f1f77bcf86cd799439011"
-}
-```
-- **Response (200):**
-```json
-{
-  "message": "Join request cancelled successfully",
-  "room": { /* room object */ }
-}
-```
-
----
-
-## 💬 Message Endpoints
-
-### 17. **Get Room Messages**
-- **Route:** `POST /rooms/get-messages`
-- **Description:** Get all messages in a room
-- **Headers:**
-```
-Authorization: Bearer <accessToken>
-Content-Type: application/json
-```
-- **Body:**
-```json
-{
-  "roomId": "507f1f77bcf86cd799439011"
-}
-```
-- **Response (200):**
-```json
-[
-  {
-    "_id": "507f1f77bcf86cd799439021",
-    "sender": {
-      "_id": "507f1f77bcf86cd799439001",
-      "username": "john_doe"
-    },
-    "room": "507f1f77bcf86cd799439011",
-    "text": "Hello everyone!",
-    "media": null,
-    "createdAt": "2024-01-15T10:30:00.000Z",
-    "updatedAt": "2024-01-15T10:30:00.000Z"
-  }
-]
-```
-
----
-
-## 🔌 WebSocket Events
-
-### Connection
-```
-wss://letschat-1-8pfq.onrender.com
-```
-### Headers
-```
-Authorization: Bearer eyJfaWQiOiI2OGI5ZDQ0NDJm......
-```
-
-### Message Format
-```json
-{
-  "text": "Hello!",
-  "roomID": "507f1f77bcf86cd799439011"
-}
-```
-
-### Receive Message
-```json
-{
-  "_id": "507f1f77bcf86cd799439021",
-  "sender": "507f1f77bcf86cd799439001",
-  "roomID": "507f1f77bcf86cd799439011",
-  "text": "Hello!",
-  "time": "2024-01-15T10:30:00.000Z",
+  "roomID": "<room-id>",
+  "text": "Hello, room!",
   "media": null
 }
 ```
 
----
+The server saves the message, publishes it to Redis, and broadcasts this shape to connected members:
 
-## ✅ Health Check Endpoint
-
-### 18. **Ping**
-- **Route:** `GET /ping`
-- **Description:** Check server health
-- **Response (200):**
-```
-pong
-```
-
----
-
-## 🔒 Authentication
-
-All endpoints (except signup, login, forgot-password, verify-code, reset-password, and ping) require:
-
-```
-Authorization: Bearer <accessToken>
-```
-
-**Token Format:** JWT signed with `JWT_SECRET`
-
----
-
-## 📊 Error Responses
-
-### Common Errors
-
-**401 Unauthorized:**
 ```json
 {
-  "message": "Access token missing"
+  "_id": "<message-id>",
+  "sender": "<user-id>",
+  "senderUsername": "jane_doe",
+  "roomID": "<room-id>",
+  "text": "Hello, room!",
+  "time": "2026-09-27T10:30:00.000Z",
+  "media": null
 }
 ```
 
-**403 Forbidden:**
-```json
-{
-  "message": "Invalid or expired token"
-}
-```
+The `media` URL can be uploaded directly to Cloudinary by the frontend. See [`frontend/CLOUDINARY_SETUP.md`](../frontend/CLOUDINARY_SETUP.md).
 
-**404 Not Found:**
-```json
-{
-  "message": "Room not found"
-}
-```
+The server closes unauthenticated connections with code `4001`, invalid-token connections with `4002`, and connections for a logged-out user with `4003`. Room or persistence errors are returned as JSON messages with an `error` property.
 
-**400 Bad Request:**
-```json
-{
-  "message": "All fields are required"
-}
-```
+### Image-only message note
 
-**500 Server Error:**
-```json
-{
-  "message": "Server error",
-  "error": "error details"
-}
-```
+The frontend currently sends image messages with an empty `text` value. The Mongoose message schema marks `text` as required, so image-only messages may fail validation. Include non-empty text with media or update the schema/validation to support media-only messages.
 
----
+## Health check
 
-## 🔄 Summary Table
+`GET /ping` is unauthenticated and returns plain text `pong` with HTTP `200` when the Express server is responding. It is mounted at the server root, outside the `/api` prefix.
 
-| # | Method | Endpoint | Auth | Description |
-|---|--------|----------|------|-------------|
-| 1 | POST | `/auth/signup` | ❌ | Register user |
-| 2 | POST | `/auth/login` | ❌ | Login user |
-| 3 | POST | `/auth/refresh-token` | ✅ | Refresh access token |
-| 4 | POST | `/auth/forgot-password` | ❌ | Request password reset |
-| 5 | POST | `/auth/verify-code` | ❌ | Verify reset code |
-| 6 | POST | `/auth/reset-password` | ❌ | Reset password |
-| 7 | GET | `/auth/my-rooms` | ✅ | Get user's rooms |
-| 8 | POST | `/rooms/make-room` | ✅ | Create room |
-| 9 | POST | `/rooms/delete-room` | ✅ | Delete room |
-| 10 | POST | `/rooms/add-member` | ✅ | Add member |
-| 11 | POST | `/rooms/remove-member` | ✅ | Remove member |
-| 12 | POST | `/rooms/leave` | ✅ | Leave room |
-| 13 | POST | `/rooms/make-admin` | ✅ | Promote to admin |
-| 14 | POST | `/rooms/remove-admin` | ✅ | Demote admin |
-| 15 | POST | `/rooms/request-joinroom` | ✅ | Request to join |
-| 16 | POST | `/rooms/cancel-request` | ✅ | Cancel join request |
-| 17 | POST | `/rooms/get-messages` | ✅ | Get messages |
-| 18 | GET | `/ping` | ❌ | Health check |
+## Common status codes
+
+| Status | Meaning |
+| --- | --- |
+| `200` | Request completed successfully. |
+| `201` | Resource created successfully. |
+| `400` | Missing/invalid input, duplicate request, or invalid operation. |
+| `401` | Access token is missing. |
+| `403` | Token is invalid/expired, or the user lacks permission. |
+| `404` | User, room, or requested resource was not found. |
+| `409` | Signup username already exists. |
+| `500` | Server-side error. |
+
+Errors usually return JSON with a `message` field; some handlers also return an `error` field or use an `error` field alone. Exact error text depends on the endpoint.

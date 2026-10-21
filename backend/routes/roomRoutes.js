@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const jwtAuth = require('../middlewares/jwtAuth');
 const Room = require('../models/roomSchema');
 const addMember = require('../controllers/addMember');
@@ -13,6 +14,13 @@ const getRoomMessages = require('../controllers/getMessages');
 const requestRoomjoin = require('../controllers/requestRoomjoin');
 const cancelRequest = require('../controllers/cancelRequest');
 const rejectRequest = require('../controllers/rejectRequest');
+const uploadFile = require('../controllers/uploadFile');
+
+// Multer: store file in memory buffer, 25 MB cap
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 25 * 1024 * 1024 },
+});
 
 // Get all rooms with search
 router.get('/all-rooms', jwtAuth, async (req, res) => {
@@ -53,5 +61,6 @@ router.post('/get-messages', jwtAuth, getRoomMessages);
 router.post('/request-joinroom', jwtAuth, requestRoomjoin);
 router.post('/cancel-request', jwtAuth, cancelRequest);
 router.post('/reject-request', jwtAuth, rejectRequest);
+router.post('/upload-file', jwtAuth, upload.single('file'), uploadFile);
 
 module.exports = router;

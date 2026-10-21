@@ -156,7 +156,7 @@ async function setupWebSocket(server) {
         const newMessage = new Message({
           sender: ws.userId,
           room: msg.roomID,
-          text: msg.text,
+          text: msg.text || '',
           media: msg.media || null,
         });
         const savedMessage = await newMessage.save();
